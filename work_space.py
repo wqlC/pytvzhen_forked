@@ -358,7 +358,7 @@ def deepLXTranslate(texts):
         response = session.request("POST", url, headers=headers, data=payload)
         response_text = json.loads(str(response.text)).get("data")
         texts_zh.append(response_text)
-        sleep(2)
+        sleep(0.2)
     return texts_zh
 
 
@@ -500,6 +500,25 @@ def merge_en_zh_srt(srtEnFileNameMergeAndPath, srtZhFileNameAndPath, merged_en_z
     subtitle_composed_str = srt.compose(subtitle_list)
     with open(merged_en_zh_file_name_path, "w", encoding="utf-8") as target_file:
         target_file.write(subtitle_composed_str)
+
+
+def split_en_zh_srt_to_zh(srtEnZhFileNameAndPath, srtSplitZhFileNameAndPath):
+    '''
+    en_zh 字幕拆成zh字幕
+    '''
+    en_zh_subtitle_list = list(srt.parse(open(srtEnZhFileNameAndPath, "r", encoding="utf-8").read()))
+    sorted_en_subtitle_list = srt.sort_and_reindex(en_zh_subtitle_list)
+    zh_splitted_subtitle_list = []
+    for en_zh_subtitle in sorted_en_subtitle_list:
+        zh_content = (en_zh_subtitle.content.split("\n")[1])
+        zh_subtitle = en_zh_subtitle
+        zh_subtitle.content = zh_content
+        zh_splitted_subtitle_list.append(zh_subtitle)
+
+    subtitle_composed_str = srt.compose(srt.sort_and_reindex(zh_splitted_subtitle_list))
+    with open(srtSplitZhFileNameAndPath, "w", encoding="utf-8") as target_file:
+        target_file.write(subtitle_composed_str)
+
 
 
 def stringToVoice(url, string, outputFile):
@@ -1021,23 +1040,36 @@ if __name__ == "__main__":
         logStr = "[WORK -] Skip subtitle translation."
         executeLog.write(logStr)
 
-    # 字幕合并
+    # 字幕合并生成双语字幕
     srtEnZhFileName = videoId + "_en_zh_merge.srt"
     srtEnZhFileNameAndPath = os.path.join(workPath, srtEnZhFileName)
-    if paramDict["srt merge en_zh subtitle"]:
+    try:
+        print(f"merge subtitle between {srtEnFileNameMergeAndPath} and {srtZhFileNameAndPath} to "
+              f"{srtEnZhFileNameAndPath}")
+        merge_en_zh_srt(srtEnFileNameMergeAndPath, srtZhFileNameAndPath, srtEnZhFileNameAndPath)
+    except Exception as e:
+        logStr = (f'[WORK x] Error: Program blocked while merge subtitle between {srtEnFileNameMergeAndPath} and'
+                  f' {srtZhFileNameAndPath} to {srtEnZhFileNameAndPath}.')
+        executeLog.write(logStr)
+        error_str = traceback.format_exception_only(type(e), e)[-1].strip()
+        executeLog.write(error_str)
+        sys.exit(-1)
+
+    # 字幕拆分，生成中文字幕
+    srtSplitZhFileNameAndPath = srtZhFileNameAndPath
+    if paramDict["en_zhSubtitleSplit2-zhSubtitle"]:
         try:
-            print(f"merge subtitle between {srtEnFileNameMergeAndPath} and {srtZhFileNameAndPath} to "
-                  f"{srtEnZhFileNameAndPath}")
-            merge_en_zh_srt(srtEnFileNameMergeAndPath, srtZhFileNameAndPath, srtEnZhFileNameAndPath)
+            print(f"split subtitle {srtEnZhFileNameAndPath} to {srtSplitZhFileNameAndPath}")
+            split_en_zh_srt_to_zh(srtEnZhFileNameAndPath, srtSplitZhFileNameAndPath)
         except Exception as e:
-            logStr = (f'[WORK x] Error: Program blocked while merge subtitle between {srtEnFileNameMergeAndPath} and'
-                      f' {srtZhFileNameAndPath} to {srtEnZhFileNameAndPath}.')
+            logStr = (f'[WORK x] Error: Program blocked while split subtitle {srtEnZhFileNameAndPath} '
+                      f'to {srtSplitZhFileNameAndPath}')
             executeLog.write(logStr)
             error_str = traceback.format_exception_only(type(e), e)[-1].strip()
             executeLog.write(error_str)
             sys.exit(-1)
     else:
-        logStr = "[WORK -] Skip merge en_zh subtitle."
+        logStr = "[WORK -] Skip split en_zh to zh subtitle."
         executeLog.write(logStr)
 
     # 中文字幕转文字

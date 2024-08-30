@@ -13,7 +13,7 @@
     "srt merge translate": true,
     "srt merge translate tool": "deeplx",
     "srt merge translate key": "",
-    "srt merge en_zh subtitle": true,
+    "en_zhSubtitleSplit2-zhSubtitle": true,
     "srt merge zh to text": true,
     "srt to voice srouce": true,
     "TTS": "edge", 
