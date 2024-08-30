@@ -13,12 +13,10 @@ from pygtrans import Translate
 import requests
 from tqdm import tqdm
 from pydub import AudioSegment
-import chardet
 import asyncio
 import edge_tts
 import datetime
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
-from moviepy.video.tools.subtitles import SubtitlesClip
 import sys
 import traceback
 import deepl
@@ -30,8 +28,10 @@ from tkinter import filedialog
 from tkinter import messagebox
 from tools.trans_llm import TranslatorClass
 import tenacity
-from tools.merge_subtitle import SubtitleMerger
 import subprocess
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
+from time import sleep
 
 PROXY = "127.0.0.1:7890"
 proxies = None
@@ -100,7 +100,7 @@ def transcribeAudioEn(path, modelName="base.en", language="en", srtFilePathAndNa
     if language == "zh":
         initial_prompt = "简体"
 
-    model = WhisperModel(modelName, device="cuda", compute_type="float16", download_root="faster-whisper_models",
+    model = WhisperModel(modelName, device="auto", compute_type="float32", download_root="faster-whisper_models",
                          local_files_only=False)
     print("Whisper model loaded.")
 
@@ -323,22 +323,43 @@ def googleTrans(texts):
 
 
 def deepLXTranslate(texts):
-    # list to string
-    textEn = ""
-    for oneLine in texts:
-        textEn += oneLine + "\n"
-    url = "https://api.deeplx.org/translate"
-    payload = json.dumps({
-        "text": textEn,
-        "source_lang": "auto",
-        "target_lang": "ZH"
-    })
+    # Define the retry strategy
+    retry_strategy = Retry(
+        total=4,  # Maximum number of retries
+        status_forcelist=[429, 500, 502, 503, 504],  # HTTP status codes to retry on
+    )
+
+    # Define the retry strategy
+    retry_strategy = Retry(
+        total=4,  # Maximum number of retries
+        status_forcelist=[429, 500, 502, 503, 504],  # HTTP status codes to retry on
+    )
+    # Create an HTTP adapter with the retry strategy and mount it to session
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+
+    # Create a new session object
+    session = requests.Session()
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
+    url = "http://localhost:1188/translate"
     headers = {
         'Content-Type': 'application/json'
     }
-    response = requests.request("POST", url, headers=headers, data=payload)
-    textsZh = str(response.text).split("\n").split("\n")
-    return textsZh
+    # list to string
+    texts_zh = []
+    tqdm_bar = tqdm(texts)
+    for oneLine in tqdm_bar:
+        payload = json.dumps({
+            "text": oneLine,
+            "source_lang": "auto",
+            "target_lang": "ZH"
+        })
+        response = session.request("POST", url, headers=headers, data=payload)
+        response_text = json.loads(str(response.text)).get("data")
+        texts_zh.append(response_text)
+        sleep(2)
+    return texts_zh
 
 
 def deeplTranslate(texts, key):
@@ -461,11 +482,12 @@ def merge_en_zh_srt(srtEnFileNameMergeAndPath, srtZhFileNameAndPath, merged_en_z
     zh_sub_title_map = {subTitle.index: subTitle for subTitle in sorted_zh_subtitle_list}
 
     subtitle_list = []
-    for index in range(max(len(zh_sub_title_map), len(en_sub_title_map))):
+    for i in range(max(len(zh_sub_title_map), len(en_sub_title_map))):
+        index = i + 1
         zh_sub_title: srt.Subtitle = zh_sub_title_map.get(index)
         en_sub_title: srt.Subtitle = en_sub_title_map.get(index)
         if zh_sub_title is None and en_sub_title is None:
-            logStr = "[WORK x] Error: merge_en_zh_srt failed with zh_sub_title and en_sub_title all is null, index="+index+"."
+            logStr = f"[WORK x] Error: merge_en_zh_srt failed with zh_sub_title and en_sub_title all is null, index={index}."
             executeLog.write(logStr)
             sys.exit(-1)
         start = en_sub_title.start if zh_sub_title is None else zh_sub_title.start
@@ -772,7 +794,7 @@ if __name__ == "__main__":
     paramDict = load_param(paramDirPathAndName)
     workPath = paramDict["work path"]
     videoId = paramDict["video Id"]
-    PROXY = paramDict["proxy"]
+    PROXY = paramDict.get("proxy")
     audioRemoveModelNameAndPath = paramDict["audio remove model path"]
 
     proxies = None if not PROXY else {
@@ -1001,7 +1023,7 @@ if __name__ == "__main__":
 
     # 字幕合并
     srtEnZhFileName = videoId + "_en_zh_merge.srt"
-    srtEnZhFileNameAndPath = os.path.join(workPath, srtZhFileName)
+    srtEnZhFileNameAndPath = os.path.join(workPath, srtEnZhFileName)
     if paramDict["srt merge en_zh subtitle"]:
         try:
             print(f"merge subtitle between {srtEnFileNameMergeAndPath} and {srtZhFileNameAndPath} to "

@@ -12,7 +12,7 @@ from lib import spec_utils
 from lib import utils
 
 
-AUDIO_REMOVE_DEVICE = "gpu"
+AUDIO_REMOVE_DEVICE = "cpu"
 AUDIO_REMOVE_FFT_SIZE = 2048
 AUDIO_REMOVE_HOP_SIZE = 1024
 
