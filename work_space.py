@@ -504,7 +504,7 @@ def merge_en_zh_srt(srtEnFileNameMergeAndPath, srtZhFileNameAndPath, merged_en_z
 
 def split_en_zh_srt_to_zh(srtEnZhFileNameAndPath, srtSplitZhFileNameAndPath):
     '''
-    en_zh 字幕拆成zh字幕
+    en_zh 字幕拆成zh字幕 en字幕
     '''
     en_zh_subtitle_list = list(srt.parse(open(srtEnZhFileNameAndPath, "r", encoding="utf-8").read()))
     sorted_en_subtitle_list = srt.sort_and_reindex(en_zh_subtitle_list)
@@ -1002,6 +1002,9 @@ if __name__ == "__main__":
         logStr = "[WORK -] Skip writing EN text."
         executeLog.write(logStr)
 
+    # 字幕合并生成双语字幕
+    srtEnZhFileName = videoId + "_en_zh_merge.srt"
+    srtEnZhFileNameAndPath = os.path.join(workPath, srtEnZhFileName)
     # 字幕翻译
     srtZhFileName = videoId + "_zh_merge.srt"
     srtZhFileNameAndPath = os.path.join(workPath, srtZhFileName)
@@ -1036,24 +1039,23 @@ if __name__ == "__main__":
             error_str = traceback.format_exception_only(type(e), e)[-1].strip()
             executeLog.write(error_str)
             sys.exit(-1)
+
+        # 字幕合并生成双语字幕
+        try:
+            print(f"merge subtitle between {srtEnFileNameMergeAndPath} and {srtZhFileNameAndPath} to "
+                  f"{srtEnZhFileNameAndPath}")
+            merge_en_zh_srt(srtEnFileNameMergeAndPath, srtZhFileNameAndPath, srtEnZhFileNameAndPath)
+        except Exception as e:
+            logStr = (
+                f'[WORK x] Error: Program blocked while merge subtitle between {srtEnFileNameMergeAndPath} and'
+                f' {srtZhFileNameAndPath} to {srtEnZhFileNameAndPath}.')
+            executeLog.write(logStr)
+            error_str = traceback.format_exception_only(type(e), e)[-1].strip()
+            executeLog.write(error_str)
+            sys.exit(-1)
     else:
         logStr = "[WORK -] Skip subtitle translation."
         executeLog.write(logStr)
-
-    # 字幕合并生成双语字幕
-    srtEnZhFileName = videoId + "_en_zh_merge.srt"
-    srtEnZhFileNameAndPath = os.path.join(workPath, srtEnZhFileName)
-    try:
-        print(f"merge subtitle between {srtEnFileNameMergeAndPath} and {srtZhFileNameAndPath} to "
-              f"{srtEnZhFileNameAndPath}")
-        merge_en_zh_srt(srtEnFileNameMergeAndPath, srtZhFileNameAndPath, srtEnZhFileNameAndPath)
-    except Exception as e:
-        logStr = (f'[WORK x] Error: Program blocked while merge subtitle between {srtEnFileNameMergeAndPath} and'
-                  f' {srtZhFileNameAndPath} to {srtEnZhFileNameAndPath}.')
-        executeLog.write(logStr)
-        error_str = traceback.format_exception_only(type(e), e)[-1].strip()
-        executeLog.write(error_str)
-        sys.exit(-1)
 
     # 字幕拆分，生成中文字幕
     srtSplitZhFileNameAndPath = srtZhFileNameAndPath

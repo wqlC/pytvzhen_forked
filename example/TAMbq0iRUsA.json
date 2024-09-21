@@ -1,6 +1,6 @@
 {
-    "video Id": "qCOzdnZoOng",
-    "work path": "./conver/cheak_valve",
+    "video Id": "TAMbq0iRUsA",
+    "work path": "./conver/TAMbq0iRUsA",
     "download video": false,
     "download fhd video": false,
     "extract audio": false,
@@ -14,7 +14,7 @@
     "srt merge translate tool": "deeplx",
     "srt merge translate key": "",
     "en_zhSubtitleSplit2-zhSubtitle": true,
-    "srt merge zh to text": true,
+    "srt merge zh to text": false,
     "srt to voice srouce": false,
     "TTS": "edge", 
     "TTS param": "",
